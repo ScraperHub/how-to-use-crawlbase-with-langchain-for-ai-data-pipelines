@@ -1,3 +1,10 @@
+<a href="https://crawlbase.com/signup?utm_source=github&utm_medium=readme&utm_campaign=crawling_api_banner" target="_blank">
+  <img src="https://github.com/user-attachments/assets/afa4f6e7-25fb-442c-af2f-b4ddcfd62ab2" 
+       alt="crawling-api-cta" 
+       style="max-width: 100%; border: 0;">
+</a>
+
+
 # Crawlbase + LangChain sample
 
 Small CLI demo: a **LangGraph ReAct** agent (Anthropic Claude) with a **`fetch_web_page`** tool that pulls live HTML through [Crawlbase](https://crawlbase.com/) and returns trimmed plain text for grounding.
