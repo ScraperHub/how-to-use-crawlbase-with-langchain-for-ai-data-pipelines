@@ -9,26 +9,47 @@ from typing import Any
 from dotenv import load_dotenv
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
+from langchain_crawlbase import CrawlbaseTool
 from langgraph.prebuilt import create_react_agent
-
-from tools import fetch_web_page
 
 _CODE_DIR = Path(__file__).resolve().parent
 load_dotenv(_CODE_DIR / ".env")
 load_dotenv(_CODE_DIR.parent / ".env")
 
-SYSTEM_PROMPT = """You are a helpful assistant with access to a real-time web fetch tool.
+SYSTEM_PROMPT = """You are a helpful assistant with access to real-time web fetch tools backed by Crawlbase.
 
-Use fetch_web_page when the user needs current information from the public web, facts that may have changed, or content that is not in your training data. Prefer the tool over guessing.
+Use crawlbase_fetch when the user needs current information from mostly static HTML pages.
+Use crawlbase_fetch_js when the target site relies on client-side JavaScript rendering (only available if configured).
 
-Limitations: some sites block crawlers, require login, or show captchas; the tool may fail for those. Do not assume fetched content is complete—large pages are truncated.
+Prefer these tools over guessing when the user needs live or external web content.
 
-For mostly static HTML pages, call fetch_web_page with use_javascript=false. For heavy client-side JavaScript sites, use use_javascript=true (uses the Crawlbase JavaScript token).
+Limitations: some sites block crawlers, require login, or show captchas; the tools may fail for those. Do not assume fetched content is complete—large pages may be long.
 """
 
 
 def _default_model_name() -> str:
     return os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+
+
+def _build_crawlbase_tools() -> list[CrawlbaseTool]:
+    token = os.environ.get("CRAWLBASE_TOKEN", "").strip()
+    if not token:
+        raise ValueError("CRAWLBASE_TOKEN is not set")
+
+    tools: list[CrawlbaseTool] = [CrawlbaseTool(token=token)]
+    js = os.environ.get("CRAWLBASE_JS_TOKEN", "").strip()
+    if js:
+        tools.append(
+            CrawlbaseTool(
+                token=js,
+                name="crawlbase_fetch_js",
+                description=(
+                    "Fetches JS-rendered / SPA pages via Crawlbase and returns Markdown. "
+                    "Use for sites where content is loaded client-side."
+                ),
+            )
+        )
+    return tools
 
 
 def build_agent() -> Any:
@@ -42,8 +63,7 @@ def build_agent() -> Any:
         api_key=api_key,
         temperature=0,
     )
-    tools = [fetch_web_page]
-    return create_react_agent(model, tools, prompt=SYSTEM_PROMPT)
+    return create_react_agent(model, _build_crawlbase_tools(), prompt=SYSTEM_PROMPT)
 
 
 def run_agent(query: str) -> str:
@@ -67,4 +87,3 @@ def run_agent(query: str) -> str:
                     parts.append(block)
             return "\n".join(parts)
     return str(last.content)
-
